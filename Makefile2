@@ -1,0 +1,178 @@
+
+SYS := $(shell gcc -dumpmachine)
+ifneq (, $(findstring mingw, $(SYS)))
+  # windows with minwg
+  SYS := win
+else
+endif
+
+DIR_SLASH = 
+ifeq ($(SYS),win)
+  DIR_SLASH := $(join ,\)
+else
+  DIR_SLASH := $(join ,/)
+endif
+
+TARGET_DIRS := 
+
+TARGET_DIR := build
+# remove trailing spaces and slasheh and add one slash at the end
+TARGET_DIR2 := $(subst $(DIR_SLASH),,$(strip $(TARGET_DIR)))$(DIR_SLASH)
+TARGET_DIRS += $(TARGET_DIR2)
+
+TARGET_DIR_OBJ := $(TARGET_DIR2)obj$(DIR_SLASH)
+TARGET_DIR_DEP := $(TARGET_DIR2)dep$(DIR_SLASH)
+TARGET_DIRS += $(TARGET_DIR_OBJ) $(TARGET_DIR_DEP)
+
+PROJECT_NAME := 1
+
+DYNAMIC_LIB := $(TARGET_DIR2)$(PROJECT_NAME).exe
+
+CXX        := g++
+CXXFLAGS   := -O2 -std=c++14
+LINKER     := $(CXX)
+LFLAGS     := -shared -s
+INCPATH    := -I.
+LIBS       :=
+
+DEP_SFX    := .d
+SRC_SFX    := .cpp
+OBJ_SFX    := .o
+
+CURRENT_DIR =
+SRC =
+ifeq ($(SYS),win)
+  CURRENT_DIR := $(shell cd)$(DIR_SLASH)
+  SRC := $(shell dir /s /b $(CURRENT_DIR)*$(SRC_SFX))
+  ECHO_NEW_LINE := echo.
+else
+  CURRENT_DIR := $(shell pwd)$(DIR_SLASH)
+  SRC := $(shell find $(CURRENT_DIR) -name "*$(SRC_SFX)" -print)
+  ECHO_NEW_LINE := echo ""
+endif
+
+# SRC_DIRS contains fill dir paths with last slash
+SRC_DIRS := $(sort $(dir $(SRC)))
+# SRC_REL_PATH like 'a.cpp b\b.cpp'
+SRC_REL_PATH := $(subst $(CURRENT_DIR),,$(SRC))
+ # SRC_SUBDIRS contains last slashes like 'b\'
+SRC_SUBDIRS := $(subst $(CURRENT_DIR),,$(SRC_DIRS))
+
+TARGET_DIRS += $(addprefix $(TARGET_DIR_OBJ),$(SRC_SUBDIRS))
+TARGET_DIRS += $(addprefix $(TARGET_DIR_DEP),$(SRC_SUBDIRS))
+OBJ := $(addprefix $(TARGET_DIR_OBJ),$(addsuffix $(OBJ_SFX),$(SRC_REL_PATH)))
+DEP := $(addprefix $(TARGET_DIR_DEP),$(addsuffix $(DEP_SFX),$(SRC_REL_PATH)))
+
+
+ECHO_NEW_LINE =
+REMOVE_FILE =
+TAB_CHAR = 
+ECHO_CMD = 
+QUOTE_CHAR = 
+ifeq ($(SYS),win)
+  ECHO_NEW_LINE := echo.
+  REMOVE_FILE := del /f /q
+  EMPTY := 
+  TAB_CHAR := $(EMPTY)	$(EMPTY)
+  ECHO_CMD := echo
+  QUOTE_CHAR := "
+else
+  ECHO_NEW_LINE := echo ""
+  REMOVE_FILE := rm -f
+  TAB_CHAR := "\t"
+  ECHO_CMD := echo -e
+  QUOTE_CHAR := \"
+endif
+
+
+ifeq ($(SYS),win)
+  # redirect STDOUT 1 and STDERR 2 streams to nul
+  UNUSED := $(shell mkdir $(TARGET_DIRS) 1>nul 2>nul)
+else
+  UNUSED := $(shell mkdir -p $(TARGET_DIRS))
+endif
+
+
+.PHONY: all dynamic
+
+all : dynamic
+
+dynamic : $(DYNAMIC_LIB)
+
+
+MAKEFILE_AUX := $(TARGET_DIR2)makefile_aux
+
+aux_makefiles : $(MAKEFILE_AUX)
+
+
+
+define MAKEFILE_AUX_CMD =
+  @$(ECHO_CMD) $(TARGET_DIR_OBJ)$(SRC_REL_FILE)$(OBJ_SFX) : $(SRC_REL_FILE) $(TARGET_DIR_DEP)$(SRC_REL_FILE)$(DEP_SFX) >>$(MAKEFILE_AUX)
+  @$(ECHO_CMD) $(TAB_CHAR)@$(ECHO_CMD) Compiling $(SRC_REL_FILE)... >>$(MAKEFILE_AUX)
+  @$(ECHO_CMD) $(TAB_CHAR)$(CXX) $(INCPATH) $(CXXFLAGS) -MM -MF$(QUOTE_CHAR)$(TARGET_DIR_DEP)$(SRC_REL_FILE)$(DEP_SFX)$(QUOTE_CHAR) -MG -MP -MT$(QUOTE_CHAR)$(TARGET_DIR_OBJ)$(SRC_REL_FILE)$(OBJ_SFX) $(QUOTE_CHAR) $(SRC_REL_FILE) >>$(MAKEFILE_AUX)
+  @$(ECHO_CMD) $(TAB_CHAR)$(CXX) $(INCPATH) $(CXXFLAGS) -c $(SRC_REL_FILE) -o $(TARGET_DIR_OBJ)$(SRC_REL_FILE)$(OBJ_SFX) >>$(MAKEFILE_AUX)
+  @$(ECHO_NEW_LINE) >>$(MAKEFILE_AUX)
+
+endef
+# empty line before endef is necessary
+
+# MAKEFILE_AUX contains rules to create obj and dep files
+$(MAKEFILE_AUX) : $(SRC_REL_PATH)
+	$(REMOVE_FILE) $(MAKEFILE_AUX)
+	@$(ECHO_CMD) ...
+	$(foreach SRC_REL_FILE,$(SRC_REL_PATH),$(MAKEFILE_AUX_CMD))
+	@$(ECHO_CMD) file $(MAKEFILE_AUX) created
+
+
+include $(MAKEFILE_AUX)
+
+
+# empty prerequisites and command
+%$(DEP_SFX) : ;
+# http://make.mad-scientist.net/papers/advanced-auto-dependency-generation/
+# when make checks the target [build\obj\a.cpp.o : a.cpp build\dep\a.cpp.d...] 
+# it will see the dependency file as 
+# a prerequisite and try to build that. If it exists nothing will be 
+# done since there’s no prerequisites for the dependency file. If it 
+# doesn’t exist, it will be marked out of date since it has an empty 
+# recipe, which will force the object target to be rebuilt (creating a 
+# new dependency file).
+
+# MAKEFILE_AUX has form:
+# build\obj\a.cpp.o : a.cpp build\dep\a.cpp.d 
+# ____g++ -I. -O2 -std=c++14 -MM -MF"build\dep\a.cpp.d" -MG -MP -MT"build\obj\a.cpp.o " a.cpp 
+# ____g++ -I. -O2 -std=c++14 -c a.cpp -o build\obj\a.cpp.o 
+
+# generate .d-file with .o-file for each source
+
+# .d-files has form:
+# build\obj\a.cpp.o : a.cpp a.h
+# a.h:
+
+-include $(DEP)
+
+
+
+$(DYNAMIC_LIB) : $(OBJ)
+	$(LINKER) $(LFLAGS) $(LIBPATH) $(OBJ) $(LIBS) -o $@
+
+
+test :
+	@echo .
+	@echo CURRENT_DIR = $(CURRENT_DIR)
+	@echo .
+	@echo SRC = $(SRC)
+	@echo .
+	@echo SRC_DIRS = $(SRC_DIRS)
+	@echo .
+	@echo SRC_REL_PATH = $(SRC_REL_PATH)
+	@echo .
+	@echo SRC_SUBDIRS = $(SRC_SUBDIRS)
+	@echo .
+	@echo OBJ = $(OBJ)
+	@echo .
+	@echo DEP = $(DEP)
+	@echo .
+	@echo TARGET_DIRS = $(TARGET_DIRS)
+	@echo .
+	@echo MAKEFILE_AUX = $(MAKEFILE_AUX)
