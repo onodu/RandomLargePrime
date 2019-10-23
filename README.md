@@ -11,7 +11,14 @@ Output is a random probably prime number having <i>number_digits</i> digits in <
 
 Depends on Boost for multiprecision integers, random and miller_rabin primality test.
 
-Example: 
+# Build
+```
+mkdir
+cd build
+cmake ..
+cmake --build .
+```
+## Example
 ```
 > random-large-prime 10 5
 52561
