@@ -13,7 +13,7 @@ Depends on Boost for multiprecision integers, random and miller_rabin primality 
 
 # Build
 ```
-mkdir
+mkdir build
 cd build
 cmake ..
 cmake --build .
