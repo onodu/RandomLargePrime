@@ -1,118 +1,106 @@
 #include <algorithm>
-#include <chrono>
-#include <fstream>  
+#include <cmath>
 #include <iostream>
 #include <map>
-#include <math.h>
-#include <sstream>
-#include <vector>
+#include <type_traits>
 
 #include <boost/multiprecision/cpp_int.hpp>
 #include <boost/multiprecision/miller_rabin.hpp>
 #include <boost/random.hpp>
-
+#include <boost/random/random_device.hpp>
 
 using integer_t = boost::multiprecision::cpp_int;
-using rational_t = boost::multiprecision::cpp_rational;
 
-integer_t pow(integer_t a, integer_t n)
+integer_t genRand2(const integer_t& a, const integer_t& b)
 {
-	if(a == 1) return a;
-	if(n < 0) return 0;
-	integer_t res = 1;
-	while(n)
-	{
-		if((n & 1) == 1) res *= a;
-		n /= 2;
-		if(n) a *= a;
-	}
-	return res;
-
-}
-
-integer_t genRand2(integer_t const &a, integer_t const &b)
-{
-	static boost::random::mt19937 gen(std::chrono::high_resolution_clock::now().time_since_epoch().count());
-	boost::random::uniform_int_distribution<integer_t> dist(a, b);
-
+	using namespace boost::random;
+	static random_device rd;
+	static mt19937 gen(rd());
+	uniform_int_distribution<integer_t> dist(a, b);
 	return dist(gen);
 }
-template<class RandF>
-void showStat(RandF f, const unsigned n)
+
+template<class T>
+T lerp(const T& x0, const T& y0,
+	const T& x1, const T& y1,
+	const T& x)
 {
-	std::map<decltype(f()), unsigned> map;
+  return y0 * (x - x1) / (x0 - x1)
+      + y1 * (x - x0) / (x1 - x0);
+}
+
+template<class RandIntF>
+void showStat(RandIntF f, const unsigned n)
+{
+	std::map<std::invoke_result_t<RandIntF>, unsigned> map;
 	for(unsigned i = 0; i < n; i++)
 	{
 		map[f()]++;
 	}
+	const unsigned max = std::max_element(
+		map.begin()
+		,map.end()
+		,[](const auto &p1, const auto &p2)
+		{
+			return p1.second < p2.second;
+		})->second;
 	for(const auto &p : map)
 	{
-		std::cout << p.first << "\t: " << std::string(p.second/static_cast<double>(n)*72, '*') << "\n";
+		std::cout << p.first << "\t: " << std::string(std::round(lerp<double>(0,0, max, 60, p.second)), '*') << "\n";
 	}
 }
 
 
-int main(int argc, char **argv)
+int main(int argc, char **argv) try
 {
-	
-	try	
+	//showStat([]{return genRand2(1,10);}, 10'000);
+
+	int radix = 0;
+	int nDitits = 0;
+	if(argc > 2)
 	{
-		//showStat([](){return genRand2(36,51);}, 1000*10);
-		
-		int radix = 0;
-		int nDitits = 0;
-		if(argc > 2)
-		{
-			radix = std::stoi(argv[1]);
-			nDitits = std::stoi(argv[2]);
-		}
-		if(radix <= 0 || nDitits <= 0)
-		{
-			radix = 2;
-			nDitits = 1024;
-		}
-		
-		std::cout << "radix = " << radix << "\n";
-		std::cout << "nDitits = " << nDitits << "\n";
-		
-		const integer_t a = pow(integer_t(radix), integer_t(nDitits - 1));
-		const integer_t b = pow(integer_t(radix), integer_t(nDitits)) - 1;
-		std::cout << "a = " << a << "\n";
-		std::cout << "b = " << b << "\n";
-		
-		integer_t randNum;
-		int nAttempts = 0;
-		auto t1 = std::chrono::high_resolution_clock::now();
-		do
-		{
-			randNum = genRand2(a, b);
-			// make it odd
-			randNum |= 1;
-			
-			const int millerAttempts = 25;
-			
-			while(randNum <= b && !boost::multiprecision::miller_rabin_test(randNum, millerAttempts))
-			{
-				randNum += 2;
-				++nAttempts;
-				
-				auto t2 = std::chrono::high_resolution_clock::now();
-				if(std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() > 2000)
-				{
-					std::cout << "nAttempts = " << nAttempts << "...\n";
-					t1 = t2;
-				}
-			}
-		}
-		while(randNum > b);
-		
-		std::cout << "nAttempts = " << nAttempts << "\n";
-		std::cout << "probably prime = " << randNum << "\n";
+		radix = std::stoi(argv[1]);
+		nDitits = std::stoi(argv[2]);
 	}
-	catch(std::exception &ex)
+	if(radix <= 0 || nDitits <= 0)
 	{
-		std::cout << "error: " << ex.what() << "\n";
+		radix = 2;
+		nDitits = 1024;
 	}
-	
+
+	using boost::multiprecision::pow;
+	const integer_t a = pow(integer_t(radix), unsigned(nDitits - 1));
+	const integer_t b = pow(integer_t(radix), unsigned(nDitits)) - 1;
+	if(b - a <= 2)
+	{
+		std::cout << 2 << '\n';
+		return 0;
+	}
+
+	integer_t randNum;
+	int nAttempts = 0;
+	do
+	{
+		randNum = genRand2(a, b);
+		// make it odd
+		randNum |= 1;
+
+		const int millerAttempts = 25;
+		while(randNum <= b && !boost::multiprecision::miller_rabin_test(randNum, millerAttempts))
+		{
+			randNum += 2;
+			++nAttempts;
+
+		}
+	}
+	while(randNum > b);
+
+	std::cout << randNum << "\n";
+
 	return 0;
+}
+catch(const std::exception &ex)
+{
+	std::cerr << "Error: " << ex.what() << std::endl;
+	return 1;
 }
