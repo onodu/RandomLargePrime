@@ -14,10 +14,11 @@ using integer_t = boost::multiprecision::cpp_int;
 integer_t genRand2(const integer_t& a, const integer_t& b)
 {
     using namespace boost::random;
-    const std::thread::id       this_id = std::this_thread::get_id();
-    static random_device        rd;
-    const auto                  sed = rd() + std::hash<std::thread::id>{}(this_id);
-    static thread_local mt19937 gen{sed};
+    const thread_local std::thread::id this_id = std::this_thread::get_id();
+    static random_device               rd;
+    static const auto                  rdSed = rd();
+    const auto           sed = rdSed + std::hash<std::thread::id>{}(this_id);
+    thread_local mt19937 gen{sed};
     uniform_int_distribution<integer_t> dist{a, b};
     return dist(gen);
 }
