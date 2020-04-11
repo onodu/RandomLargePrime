@@ -3,11 +3,11 @@ Generates arbitrary precision random probably prime number.
 
 Usage: ```random-large-prime base number_digits```,
 
-- where <i>base</i> - is a positive integer, base of a numeral system,
+- where *base* - is a positive integer, base of a number system,
 
-- <i>number_digits</i> - is a positive integer, number of digits in <i>base</i>-ary system.
+- *number_digits* - is a positive integer, number of digits in *base*-ary system.
 
-Output is a random probably prime number having <i>number_digits</i> digits in <i>base</i>-ary system.
+Output is a random probably prime number with *number_digits* digits in *base*-ary system.
 
 Depends on Boost for multiprecision integers, random and miller_rabin primality test.
 
