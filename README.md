@@ -1,11 +1,13 @@
 # RandomLargePrime
 Generates arbitrary precision random probably prime number.
 
-Usage: ```random-large-prime base number_digits```,
+Usage: ```random-large-prime [base [number_digits [world]]]```, where
 
-- where *base* - is a positive integer, base of a number system,
+- *base* - positive integer >= 2, base of a number system;
 
-- *number_digits* - is a positive integer, number of digits in *base*-ary system.
+- *number_digits* - positive integer >= 1, number of digits in *base*-ary system;
+
+- *world* - positive integer >= 1, number of threads to create.
 
 Output is a random probably prime number with *number_digits* digits in *base*-ary system.
 
@@ -15,7 +17,7 @@ Depends on Boost for multiprecision integers, random and miller_rabin primality 
 ```
 mkdir build
 cd build
-cmake ..
+cmake -GNinja ..
 cmake --build .
 ```
 # Example
@@ -27,8 +29,8 @@ cmake --build .
 ```
 # Pseudocode
 ```
-1. Put a := radix ^ (nDitits - 1).
-2. Put b := radix ^ (nDitits) - 1.
+1. Put a := radix ** (nDitits - 1).
+2. Put b := radix ** nDitits - 1.
 3. Generare randNum - odd random uniform integer within [a, b].
 4. While randNum <= b and randNum is composite:
 4.1. Increment: randNum += 2.
