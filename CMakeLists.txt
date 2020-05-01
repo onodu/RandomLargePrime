@@ -6,7 +6,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(${PROJECT_NAME} main.cpp)
-find_package(Boost REQUIRED COMPONENTS random thread chrono)
+find_package(Boost REQUIRED COMPONENTS random thread chrono program_options)
 
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${Boost_INCLUDE_DIRS})
-target_link_libraries(${PROJECT_NAME} PRIVATE Boost::random Boost::thread Boost::chrono)
+target_link_libraries(${PROJECT_NAME} PRIVATE Boost::random Boost::thread Boost::chrono
+                                              Boost::program_options)

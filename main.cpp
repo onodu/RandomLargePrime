@@ -3,6 +3,7 @@
 #include <boost/chrono.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <boost/multiprecision/miller_rabin.hpp>
+#include <boost/program_options.hpp>
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/random_device.hpp>
 #include <boost/random/seed_seq.hpp>
@@ -35,12 +36,13 @@ integer_t genRand2(const integer_t& a, const integer_t& b)
             boost::hash<boost::thread::id>{}(boost::this_thread::get_id()));
         return boost::random::seed_seq{rdSed, chronoSed, tidSed};
     };
-    static thread_local boost::random::mt19937 gen{sed++};
+    static thread_local boost::random::mt19937 gen{getSedseq()};
     boost::random::uniform_int_distribution<integer_t> dist{a, b};
     return dist(gen);
 }
 
-integer_t parallelGenRandPrime(const integer_t& a, const integer_t& b)
+integer_t parallelGenRandPrime(
+    const integer_t& a, const integer_t& b, const std::size_t world)
 {
     if(b - a <= 2 || a >= b)
         return 2;
@@ -51,9 +53,7 @@ integer_t parallelGenRandPrime(const integer_t& a, const integer_t& b)
         boost::mutex resultMutex;
         using jthread_t = boost::scoped_thread<boost::join_if_joinable>;
         std::vector<jthread_t> threads;
-        // const std::size_t size = 1;
-        const std::size_t size = boost::thread::hardware_concurrency() + 1;
-        threads.reserve(size);
+        threads.reserve(world);
         const auto threadFunc = [&a, &b, &found, &globalRet, &resultMutex] {
             integer_t localRet;
             do
@@ -79,16 +79,16 @@ integer_t parallelGenRandPrime(const integer_t& a, const integer_t& b)
                 }
             }
         };
-        std::generate_n(std::back_inserter(threads), size,
+        std::generate_n(std::back_inserter(threads), world,
             [&threadFunc] { return jthread_t{threadFunc}; });
     }
     return globalRet;
 }
 
-auto measureGenRandPrime(const integer_t& a, const integer_t& b)
+auto measureGenRandPrime(const integer_t& a, const integer_t& b, const std::size_t world)
 {
     const auto t1 = boost::chrono::steady_clock::now();
-    std::cout << parallelGenRandPrime(a, b) << std::endl;
+    std::cout << parallelGenRandPrime(a, b, world) << std::endl;
     const auto t2 = boost::chrono::steady_clock::now();
     return boost::chrono::duration<double>{t2 - t1};
 }
@@ -96,25 +96,76 @@ auto measureGenRandPrime(const integer_t& a, const integer_t& b)
 int main(const int argc, const char** argv)
 try
 {
-    int radix = 0;
-    int nDigits = 0;
-    if(argc > 2)
-    {
-        radix = std::stoi(argv[1]);
-        nDigits = std::stoi(argv[2]);
-    }
-    if(radix <= 0 || nDigits <= 0)
-    {
-        radix = 2;
-        nDigits = 1024;
-    }
+    integer_t base;
+    unsigned number_digits;
+    std::size_t world;
 
-    const integer_t a =
-        boost::multiprecision::pow(integer_t{radix}, static_cast<unsigned>(nDigits - 1));
-    const integer_t b =
-        boost::multiprecision::pow(integer_t{radix}, static_cast<unsigned>(nDigits)) - 1;
+    namespace po = boost::program_options;
+    po::options_description desc("Allowed options");
+    desc.add_options()("help", "produce help message");
 
-    std::cout << parallelGenRandPrime(a, b) << std::endl;
+    desc.add_options()("base",
+        po::value<decltype(base)>(&base)->default_value(2)->notifier(
+            [](const auto value) {
+                if(value < 2)
+                {
+                    po::invalid_option_value er{value.str()};
+                    er.set_option_name("base");
+                    throw er;
+                }
+            }),
+        "integer >= 2, base of a number system");
+
+    desc.add_options()("number_digits",
+        po::value<decltype(number_digits)>(&number_digits)
+            ->default_value(32)
+            ->notifier([](const auto value) {
+                if(value < 1)
+                {
+                    po::invalid_option_value er{std::to_string(value)};
+                    er.set_option_name("number_digits");
+                    throw er;
+                }
+            }),
+        "integer >= 1, number of digits in base-ary system");
+
+    desc.add_options()("world",
+        po::value<decltype(world)>(&world)
+            ->default_value(boost::thread::hardware_concurrency() + 1)
+            ->notifier([](const auto value) {
+                if(value < 1)
+                {
+                    po::invalid_option_value er{std::to_string(value)};
+                    er.set_option_name("world");
+                    throw er;
+                }
+            }),
+        "integer >= 1, number of threads to create");
+
+    po::positional_options_description positionalArgs;
+    positionalArgs.add("base", 1).add("number_digits", 1).add("world", 1);
+
+    po::variables_map vm;
+    po::store(po::command_line_parser(argc, argv)
+                  .options(desc)
+                  .positional(positionalArgs)
+                  .run(),
+        vm);
+    po::notify(vm);
+    if(vm.count("help"))
+    {
+        std::cout << desc << std::endl;
+        return 1;
+    }
+    std::cout << "base = " << vm["base"].as<decltype(base)>() << ' ' << base << "\n";
+    std::cout << "number_digits = " << vm["number_digits"].as<decltype(number_digits)>()
+              << ' ' << number_digits << "\n";
+    std::cout << "world = " << vm["world"].as<decltype(world)>() << ' ' << world << "\n";
+
+    const integer_t a = boost::multiprecision::pow(base, number_digits - 1);
+    const integer_t b = boost::multiprecision::pow(base, number_digits) - 1;
+
+    std::cout << parallelGenRandPrime(a, b, world) << std::endl;
     return 0;
 }
 catch(const std::exception& ex)
