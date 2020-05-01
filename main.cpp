@@ -157,15 +157,11 @@ try
         std::cout << desc << std::endl;
         return 1;
     }
-    std::cout << "base = " << vm["base"].as<decltype(base)>() << ' ' << base << "\n";
-    std::cout << "number_digits = " << vm["number_digits"].as<decltype(number_digits)>()
-              << ' ' << number_digits << "\n";
-    std::cout << "world = " << vm["world"].as<decltype(world)>() << ' ' << world << "\n";
 
     const integer_t a = boost::multiprecision::pow(base, number_digits - 1);
     const integer_t b = boost::multiprecision::pow(base, number_digits) - 1;
-
     std::cout << parallelGenRandPrime(a, b, world) << std::endl;
+
     return 0;
 }
 catch(const std::exception& ex)
