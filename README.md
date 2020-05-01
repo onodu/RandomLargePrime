@@ -7,7 +7,7 @@ Usage: ```random-large-prime [base [number_digits [world]]]```, where
 
 - *number_digits* - positive integer >= 1, number of digits in *base*-ary system;
 
-- *world* - positive integer >= 1, number of threads to create (default is boost::thread::hardware_concurrency() + 1).
+- *world* - positive integer >= 1, number of threads to create (default is ```boost::thread::hardware_concurrency() + 1```).
 
 Output is a random probably prime number with *number_digits* digits in *base*-ary system.
 
