@@ -24,30 +24,37 @@ void uniquePrintln(std::ostream& os, const Args&... args)
     os << std::endl;
 }
 
-static boost::atomic<unsigned> sed = 0;
-integer_t genRand2(const integer_t& a, const integer_t& b)
+struct Random
 {
-    const auto getSedseq = [] {
-        using value_t = boost::random::mt19937::result_type;
+    using Gen_t = boost::random::mt19937;
+    static thread_local Gen_t gen;
+    static auto unf(const integer_t& a, const integer_t& b)
+    {
+        boost::random::uniform_int_distribution<integer_t> dist{a, b};
+        return dist(gen);
+    }
+
+private:
+    static const auto getSedseq()
+    {
+        using value_t = Gen_t::result_type;
         static const auto rdSed = static_cast<value_t>(boost::random::random_device{}());
         const auto chronoSed = static_cast<value_t>(
             boost::chrono::system_clock::now().time_since_epoch().count());
         const auto tidSed = static_cast<value_t>(
             boost::hash<boost::thread::id>{}(boost::this_thread::get_id()));
         return boost::random::seed_seq{rdSed, chronoSed, tidSed};
-    };
-    static thread_local boost::random::mt19937 gen{getSedseq()};
-    boost::random::uniform_int_distribution<integer_t> dist{a, b};
-    return dist(gen);
-}
+    }
+};
+thread_local Random::Gen_t Random::gen{getSedseq()};
 
 integer_t parallelGenRandPrime(
     const integer_t& a, const integer_t& b, const std::size_t world)
 {
     if(b - a <= 2 || a >= b)
         return 2;
-    integer_t globalRet;
 
+    integer_t globalRet;
     {
         boost::atomic_bool found{false};
         boost::mutex resultMutex;
@@ -58,13 +65,13 @@ integer_t parallelGenRandPrime(
             integer_t localRet;
             do
             {
-                localRet = genRand2(a, b);
+                localRet = Random::unf(a, b);
                 // make it odd
                 localRet |= 1;
                 constexpr int millerAttempts = 25;
                 while(!found && localRet <= b
                     && !boost::multiprecision::miller_rabin_test(
-                        localRet, millerAttempts))
+                        localRet, millerAttempts, Random::gen))
                 {
                     localRet += 2;
                 }
