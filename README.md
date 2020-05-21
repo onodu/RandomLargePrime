@@ -19,7 +19,7 @@ Depends on [Boost](https://www.boost.org/) for multiprecision integers, random a
 pip install conan
 mkdir build
 cd build
-cmake -GNinja ..
+cmake -GNinja .. -DCMAKE_BUILD_TYPE=Release
 cmake --build .
 ```
 # Example
