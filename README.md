@@ -11,10 +11,12 @@ Usage: ```random-large-prime [base [number_digits [world]]]```, where
 
 Output is a random probably prime number with *number_digits* digits in *base*-ary system.
 
-Depends on Boost for multiprecision integers, random and miller_rabin primality test.
+Depends on [Boost](https://www.boost.org/) for multiprecision integers, random and miller_rabin primality test, [conan](https://conan.io/index.html) to install Boost, [python](https://www.python.org/) to install conan.
+.
 
 # Build
 ```
+pip install conan
 mkdir build
 cd build
 cmake -GNinja ..
