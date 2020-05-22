@@ -16,7 +16,7 @@ if(NOT EXISTS "${CMAKE_BINARY_DIR}/conan.cmake")
     "${CMAKE_BINARY_DIR}/conan.cmake")
 endif()
 include(${CMAKE_BINARY_DIR}/conan.cmake)
-conan_cmake_run(REQUIRES boost/1.73.0 BASIC_SETUP)
+conan_cmake_run(REQUIRES boost/1.73.0 BASIC_SETUP BUILD missing)
 
 add_executable(${PROJECT_NAME} main.cpp)
 target_link_libraries(${PROJECT_NAME} ${CONAN_LIBS})
