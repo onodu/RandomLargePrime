@@ -48,8 +48,8 @@ private:
 };
 thread_local Random::Gen_t Random::gen{getSedseq()};
 
-integer_t parallelGenRandPrime(
-    const integer_t& a, const integer_t& b, const std::size_t world)
+integer_t
+    parallelGenRandPrime(const integer_t& a, const integer_t& b, const std::size_t world)
 {
     if(b - a <= 2 || a >= b)
         return 2;
@@ -70,8 +70,10 @@ integer_t parallelGenRandPrime(
                 localRet |= 1;
                 constexpr int millerAttempts = 25;
                 while(!found && localRet <= b
-                    && !boost::multiprecision::miller_rabin_test(
-                        localRet, millerAttempts, Random::gen))
+                      && !boost::multiprecision::miller_rabin_test(
+                          localRet,
+                          millerAttempts,
+                          Random::gen))
                 {
                     localRet += 2;
                 }
@@ -86,8 +88,9 @@ integer_t parallelGenRandPrime(
                 }
             }
         };
-        std::generate_n(std::back_inserter(threads), world,
-            [&threadFunc] { return jthread_t{threadFunc}; });
+        std::generate_n(std::back_inserter(threads), world, [&threadFunc] {
+            return jthread_t{threadFunc};
+        });
     }
     return globalRet;
 }
@@ -111,7 +114,8 @@ try
     po::options_description desc("Allowed options");
     desc.add_options()("help", "produce help message");
 
-    desc.add_options()("base",
+    desc.add_options()(
+        "base",
         po::value<decltype(base)>(&base)->default_value(2)->notifier(
             [](const auto value) {
                 if(value < 2)
@@ -123,7 +127,8 @@ try
             }),
         "integer >= 2, base of a number system");
 
-    desc.add_options()("number_digits",
+    desc.add_options()(
+        "number_digits",
         po::value<decltype(number_digits)>(&number_digits)
             ->default_value(32)
             ->notifier([](const auto value) {
@@ -136,7 +141,8 @@ try
             }),
         "integer >= 1, number of digits in base-ary system");
 
-    desc.add_options()("world",
+    desc.add_options()(
+        "world",
         po::value<decltype(world)>(&world)
             ->default_value(boost::thread::hardware_concurrency() + 1)
             ->notifier([](const auto value) {
@@ -153,10 +159,11 @@ try
     positionalArgs.add("base", 1).add("number_digits", 1).add("world", 1);
 
     po::variables_map vm;
-    po::store(po::command_line_parser(argc, argv)
-                  .options(desc)
-                  .positional(positionalArgs)
-                  .run(),
+    po::store(
+        po::command_line_parser(argc, argv)
+            .options(desc)
+            .positional(positionalArgs)
+            .run(),
         vm);
     po::notify(vm);
     if(vm.count("help"))
